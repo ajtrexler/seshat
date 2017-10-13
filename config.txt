@@ -1,0 +1,4 @@
+[seshat1 config]
+salt_path = /home/adam/codebase/
+crypto_path = /home/adam/scripts/seshat/crypto/
+crypto_file = newfile.txt.enc
