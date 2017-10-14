@@ -2,3 +2,5 @@
 salt_path = /home/adam/codebase/
 crypto_path = /home/adam/scripts/seshat/crypto/
 crypto_file = newfile.txt.enc
+mongodb_path = /data/db/
+mongodb_name = seshat_ajt_db
