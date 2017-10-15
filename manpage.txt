@@ -1,0 +1,13 @@
+command line argument structure; seshat1.
+
+seshat.py -t {fin,todo,idea} -e {text entry for any of these} -d {numeric task id}
+
+-t :
+  -type: type flag for finance, todo, or idea update to DB.
+  
+
+-e:
+  -entry: text of the entry for save in DB.
+  
+-d:
+  -done: done numeric task ID (tid)

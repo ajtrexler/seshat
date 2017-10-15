@@ -13,7 +13,10 @@ from Crypto import Random
 import pymongo
 import ConfigParser
 from pymongo import MongoClient
-
+from datetime import datetime
+from sys import argv
+import random
+import time
 
 CONFIG_PATH = '/home/adam/scripts/seshat/config.txt'
 config = ConfigParser.ConfigParser()
@@ -24,6 +27,7 @@ SALT_PATH = config.get('seshat1 config','salt_path')
 CRYPTO_NAME = config.get('seshat1 config','crypto_file')
 DB_PATH = config.get('seshat1 config','mongodb_path')
 dbName = config.get('seshat1 config','mongodb_name')
+OUTPUT_PATH = config.get('seshat1 config','output_path')
 
 
 
@@ -62,7 +66,7 @@ def checkAsana():
     
     all_tasks=[]
     for project in projects:
-        print project['name']
+        #print project['name']
         project_id = project['id']
         project_tasks = client.tasks.find_by_project(project_id,iterator_type=None)
         
@@ -70,61 +74,140 @@ def checkAsana():
             all_tasks.append(task['id'])
     return client, all_tasks
 
-#check all_tasks against DB 
-#get info and make DB entry for new tasks.
-
-#read 
-for task in all_tasks:
-    client.tasks.find_by_id(task)
-    
 
 
 def newTask(tid,sysflag,db,task_info=None):
     newDoc={}
     if sysflag=='asana':
+        time.sleep(1)
         task_info = client.tasks.find_by_id(tid)
         newDoc['type']='asana'
-    elif sysflag=='idea':
-        newDoc['type']='idea'
-    elif sysflag=='todo':
-        newDoc['type']=='todo'
+        newDoc['_id']=tid
+        newDoc['name']=task_info['name']
+        newDoc['projects']=task_info['projects']
+        try:
+            newDoc['due_on']=task_info['due_on'][0:10]
+        except:
+            newDoc['due_on']=''
+
+        newDoc['created_at']=task_info['created_at'][0:10]
+        try:
+            newDoc['completed_at']=task_info['completed_at'][0:10]
+            newDoc['completed']=task_info['completed']
+        except: 
+            newDoc['completed_at']=''
+            newDoc['completed']=''
         
-    newDoc['_id']=tid
-    newDoc['name']=task_info['name']
-    newDoc['projects']=task_info['projects']
-    newDoc['due_on']=task_info['due_on']
-    newDoc['created_at']=task_info['created_at']
-    newDoc['completed_at']=task_info['completed_at']
-    newDoc['completed']=task_info['completed']
-    newDoc['assignee']=task_info['assignee']
-    
+        newDoc['assignee']=task_info['assignee']
+        
+    else:
+        newDoc=task_info
+        #print newDoc
+        newDoc['type']=sysflag
+        timestamp=datetime.strftime(datetime.now(),'%Y-%m-%d')
+        newDoc['created_at']=timestamp
+        newDoc['completed']=''
+        newDoc['_short_id']=str(newDoc['_id'])[0:4]
+   
     masterTasks = db.masterTasks
-    
     masterTasks.insert_one(newDoc)
     
     #return flag or log msg for successful DB entry.
 
 def checkDB(db,tasks,sysflag,task_info=None):
-    
+#check DB over Asana entries to update from API.
+#if new Asana tasks present, then update in DB. 
+    masterTasks = db.masterTasks
     for t in tasks:
         if masterTasks.find_one({'_id':t}):
+            #print 'old task.'
             continue
         elif task_info==None:
             newTask(t,sysflag,db)
-            
-            
+
+
+def updateTXT(sysflag,db):
     
+    masterTasks = db.masterTasks
+    tl=[]
+    for i in masterTasks.find({'type':sysflag,'completed':''}):
+        tl.append(str(i['_short_id'])+':   '+str(i['text']))
+        
+    try:
+        with open(OUTPUT_PATH+sysflag+'.txt','w') as fid:
+            for item in tl:
+                fid.write('%s\n' % str(item))
+    except:
+        print 'likely todo or idea file open; try again.'
+        
+        
     
+def getArgs(argv):
+    args = {}
+    while argv:
+        if argv[0][0] == '-':
+            args[argv[0]]=argv[1]
+        argv=argv[1:]
+    return args
     
-  #whe ncall new goal or idea, pass tid as random or unix timestamp.  
-def main():
-    
+def main(argflag,argcheck,entry=None):
+    #argflag denotes type of entry (idea,todo,finance)
+    #argcheck denotes if the task is done.
+    #entry is text to add to DB for each  task.
+    global client
     client, all_tasks = checkAsana()
     #fire up mongodb.
     themongo = MongoClient()
     db = themongo[dbName]
-    
     checkDB(db,all_tasks,'asana')
+    
+    
+    if argflag=='idea' or argflag=='todo':
+        if argcheck!=None:
+            #an idea has been deleted.  update DB/txt.
+            masterTasks = db.masterTasks
+            masterTasks.update_one({'_short_id':str(argcheck)},{'$set':{'completed':'yes',
+                                                                'completed_on':datetime.strftime(datetime.now(),'%Y-%m-%d')
+                                                                }})
+            
+        else:
+            #newIdea entered; make DB entry.
+            newIdea={}
+            newIdea['_id']=int(random.random()*10**15)
+            newIdea['text']=entry
+            newTask(newIdea['_id'],argflag,db,newIdea)
+        #call func to update output text files.
+        updateTXT(argflag,db) 
+    elif argflag=='fin':
+        print 'finance is a todo.'
+    elif argflag!=None:
+        print 'unknown argument, try again.'
+    
+    
+if __name__=='__main__':
+    
+    args = getArgs(argv)
+    if '-t' in args.keys():
+        argflag=args['-t']
+    else:
+        argflag=None
+    if '-d' in args.keys():
+        argcheck=args['-d']
+    else:
+        argcheck=None
+        
+    if '-e' in args.keys():
+        entry=args['-e']
+    else:
+        entry=None
+          
+    main(argflag,argcheck,entry)
+        
+        
+        
+
+        
+    
     
     
     
