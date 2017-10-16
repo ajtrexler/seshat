@@ -17,6 +17,7 @@ from datetime import datetime
 from sys import argv
 import random
 import time
+import getpass
 
 CONFIG_PATH = '/home/adam/scripts/seshat/config.txt'
 config = ConfigParser.ConfigParser()
@@ -47,7 +48,7 @@ def decryptor(filename,keypass,iv):
 def checkAsana():   
 
     ## on start-up.
-    password = raw_input('enter passphrase:')
+    password = getpass.getpass('enter passphrase:')
     key = hashlib.sha256(password).digest()
     with open(SALT_PATH+'seshat_salts.txt','r') as fid:
         iv=fid.read()   
@@ -74,6 +75,21 @@ def checkAsana():
             all_tasks.append(task['id'])
     return client, all_tasks
 
+def updateAsana(client,db):
+    masterTasks = db.masterTasks
+    comTasks=0
+    for t in masterTasks.find({'type':'asana','completed':''}):
+        
+        fTask = client.tasks.find_by_id(t['_id'])
+        
+        if fTask['completed']==True:
+
+            masterTasks.update_one({'_id':t['_id']},{'$set':{'completed':'True',
+                                                                'completed_on':t['completed_at']
+                                                                }}) 
+            comTasks+=1
+    print comTasks,'completed tasks!'                                                
+    
 
 
 def newTask(tid,sysflag,db,task_info=None):
@@ -126,19 +142,19 @@ def checkDB(db,tasks,sysflag,task_info=None):
             newTask(t,sysflag,db)
 
 
-def updateTXT(sysflag,db):
-    
-    masterTasks = db.masterTasks
-    tl=[]
-    for i in masterTasks.find({'type':sysflag,'completed':''}):
-        tl.append(str(i['_short_id'])+':   '+str(i['text']))
-        
-    try:
-        with open(OUTPUT_PATH+sysflag+'.txt','w') as fid:
-            for item in tl:
-                fid.write('%s\n' % str(item))
-    except:
-        print 'likely todo or idea file open; try again.'
+def updateTXT(db,sysflag=None):
+    if sysflag!=None:
+        masterTasks = db.masterTasks
+        tl=[]
+        for i in masterTasks.find({'type':sysflag,'completed':''}):
+            tl.append(str(i['_short_id'])+':   '+str(i['text']))
+            
+        try:
+            with open(OUTPUT_PATH+sysflag+'.txt','w') as fid:
+                for item in tl:
+                    fid.write('%s\n' % str(item))
+        except:
+            print 'likely todo or idea file open; try again.'
         
         
     
@@ -160,7 +176,9 @@ def main(argflag,argcheck,entry=None):
     themongo = MongoClient()
     db = themongo[dbName]
     checkDB(db,all_tasks,'asana')
-    
+    if datetime.now().minute % 3==0:
+        updateAsana(client,db) #call func to check for completed asana tasks approx 1/3 of time.
+        
     if argcheck!=None:
         try:
             todolist=[]
@@ -196,7 +214,8 @@ def main(argflag,argcheck,entry=None):
     elif argflag!=None:
         print 'unknown argument, try again.'
     
-    updateTXT(argflag,db) 
+    updateTXT(db,argflag) 
+
 
     
 if __name__=='__main__':
