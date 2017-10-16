@@ -161,43 +161,58 @@ def main(argflag,argcheck,entry=None):
     db = themongo[dbName]
     checkDB(db,all_tasks,'asana')
     
-    
-    if argflag=='idea' or argflag=='todo':
-        if argcheck!=None:
-            #an idea has been deleted.  update DB/txt.
+    if argcheck!=None:
+        try:
+            todolist=[]
+            with open(OUTPUT_PATH+argflag+'.txt','r') as fid:
+                for i,f in enumerate(fid.readlines()):
+                    print '{x}.  '.format(x=i+1),f
+                    todolist.append(f)
+            selection = 0
+            tries=0
+            while selection<1 and tries<5:
+                selection=int(raw_input('enter number of {x} to delete: '.format(x=argflag)))
+                if selection > i+1:
+                    selection=0
+                    tries+=1
             masterTasks = db.masterTasks
-            masterTasks.update_one({'_short_id':str(argcheck)},{'$set':{'completed':'yes',
+            masterTasks.update_one({'_short_id':str(todolist[selection-1])},{'$set':{'completed':'yes',
                                                                 'completed_on':datetime.strftime(datetime.now(),'%Y-%m-%d')
                                                                 }})
+        except:
+            print 'no {x} file found or could not open!'.format(x=argflag)
+            exit
             
-        else:
-            #newIdea entered; make DB entry.
-            newIdea={}
-            newIdea['_id']=int(random.random()*10**15)
-            newIdea['text']=entry
-            newTask(newIdea['_id'],argflag,db,newIdea)
+    elif argflag=='idea' or argflag=='todo':
+ 
+        #newIdea entered; make DB entry.
+        newIdea={}
+        newIdea['_id']=int(random.random()*10**15)
+        newIdea['text']=entry
+        newTask(newIdea['_id'],argflag,db,newIdea)
         #call func to update output text files.
-        updateTXT(argflag,db) 
     elif argflag=='fin':
         print 'finance is a todo.'
     elif argflag!=None:
         print 'unknown argument, try again.'
     
+    updateTXT(argflag,db) 
+
     
 if __name__=='__main__':
     
     args = getArgs(argv)
     if '-t' in args.keys():
-        argflag=args['-t']
+        argflag=args['-t'] #argflag indicates idea/todo/fin
     else:
         argflag=None
     if '-d' in args.keys():
-        argcheck=args['-d']
+        argcheck=1 #1 is flag that an item is deleted
     else:
         argcheck=None
         
     if '-e' in args.keys():
-        entry=args['-e']
+        entry=args['-e'] #entry is text for new idea/todo/fin
     else:
         entry=None
           
