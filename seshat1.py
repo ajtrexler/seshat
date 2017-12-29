@@ -185,7 +185,8 @@ def main(argflag,argcheck,entry=None):
             with open(OUTPUT_PATH+argflag+'.txt','r') as fid:
                 for i,f in enumerate(fid.readlines()):
                     print '{x}.  '.format(x=i+1),f
-                    todolist.append(f)
+                    todolist.append(f[0:4])
+            print todolist
             selection = 0
             tries=0
             while selection<1 and tries<5:
@@ -236,8 +237,21 @@ if __name__=='__main__':
         entry=None
           
     main(argflag,argcheck,entry)
-        
-        
+
+
+
+#fin keep track of portfolio values.  entry should be buy/sell amt and price.
+#periodic or upon command check/update portfolio value.
+#show performance relative to SP, Dow, NASDAQ
+
+#todo:
+#mongod as daemon
+
+
+#post, analyze task completion over time.
+#most productive day?
+#most productive month?
+#time of day (if i included that)        
         
 
         
